@@ -1,0 +1,5 @@
+[workspace]
+members = ["core", "agents", "sim", "cli"]
+
+[workspace.metadata]
+package-name = "Pazaak-AI"
