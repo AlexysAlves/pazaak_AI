@@ -1,4 +1,4 @@
-# pazaak-rs
+# pazaak
 
 Implementação em Rust do jogo Pazaak.
 
