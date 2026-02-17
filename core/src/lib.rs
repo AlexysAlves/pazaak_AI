@@ -67,7 +67,27 @@ impl GameState {
             deck: Deck::new_shuffled(),
         }
     }
-
+    pub fn new_with_hands(player_hand: Vec<SideCard>, opponent_hand: Vec<SideCard>) -> Self {
+        Self {
+            player: PlayerState {
+                score: 0,
+                side_pool: vec![],
+                side_hand: player_hand,
+                used_side_this_turn: false,
+                stood: false,
+            },
+            opponent: PlayerState {
+                score: 0,
+                side_pool: vec![],
+                side_hand: opponent_hand,
+                used_side_this_turn: false,
+                stood: false,
+            },
+            player_turn: rand::random::<bool>(), // deixa justo
+            deck: Deck::new_shuffled(),
+        }
+    }
+    
     /// returns legal actions at current state
     pub fn legal_actions(&self) -> Vec<Action> {
         let mut actions = Vec::new();
