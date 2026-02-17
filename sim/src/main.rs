@@ -1,4 +1,5 @@
 use core::GameState;
+use core::SideCard;
 use agents::{Agent, RandomAgent};
 
 fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> Option<i8> {
@@ -19,7 +20,12 @@ fn play_match(a1: &mut dyn Agent, a2: &mut dyn Agent) -> i8 {
     let mut score1 = 0;
     let mut score2 = 0;
     while score1 < 3 && score2 < 3 {
-        let state = GameState::new(vec![1,2,3], vec![1,2,3]); // example of side decks
+        // creates pools with 10 side cards each
+        let pool1 = SideCard::random_pool(10);
+        let pool2 = SideCard::random_pool(10);
+
+        // creates initial game state with 4 cards from each pool
+        let state = GameState::new(pool1, pool2);
         match play_round(state, a1, a2) {
             Some(1) => score1 += 1,
             Some(-1) => score2 += 1,

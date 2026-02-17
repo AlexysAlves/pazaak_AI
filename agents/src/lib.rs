@@ -18,7 +18,7 @@ impl Agent for RandomAgent {
     fn select_action(&mut self, state: &GameState) -> Action {
         let legal = state.legal_actions();
         if legal.is_empty() {
-            return Action::Pass;
+            return Action::Draw;
         }
         let idx = self.rng.gen_range(0..legal.len());
         legal[idx]

@@ -1,17 +1,19 @@
 use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{Rng, thread_rng};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Stand,
-    Play(i8), // value from side deck card
-    Pass,
+    Draw,
+    PlaySide(usize, Option<bool>),
 }
 
 #[derive(Debug, Clone)]
 pub struct PlayerState {
     pub score: i8,             // current sum
-    pub side_deck: Vec<i8>,    // available cards
+    pub side_pool: Vec<SideCard>, // all 10 cards (remaining in pool after drawing initial hand)
+    pub side_hand: Vec<SideCard>, // active 4 cards (can be played)
+    pub used_side_this_turn: bool,
     pub stood: bool,           // has/hasnt stood
 }
 
@@ -28,12 +30,39 @@ pub struct Deck {
     cards: Vec<i8>,
 }
 
+#[derive(Debug, Clone)]
+pub enum SideCard {
+    Simple(i8),   // value already defined
+    Flip(i8),     // magnitude and sign
+}
 
 impl GameState {
-    pub fn new(side_deck_player: Vec<i8>, side_deck_opponent: Vec<i8>) -> Self {
+    pub fn new(side_pool_player: Vec<SideCard>, side_pool_opponent: Vec<SideCard>) -> Self {
+        let mut rng = thread_rng();
+
+        // clone pools and sample 4 for each hand 
+        let mut pool_p = side_pool_player.clone();
+        pool_p.shuffle(&mut rng);
+        let hand_p: Vec<SideCard> = pool_p.drain(0..4.min(pool_p.len())).collect();
+
+        let mut pool_o = side_pool_opponent.clone();
+        pool_o.shuffle(&mut rng);
+        let hand_o: Vec<SideCard> = pool_o.drain(0..4.min(pool_o.len())).collect();
         Self {
-            player: PlayerState { score: 0, side_deck: side_deck_player, stood: false },
-            opponent: PlayerState { score: 0, side_deck: side_deck_opponent, stood: false },
+            player: PlayerState {
+                score: 0,
+                side_pool: pool_p,
+                side_hand: hand_p,
+                used_side_this_turn: false,
+                stood: false,
+            },
+            opponent: PlayerState {
+                score: 0,
+                side_pool: pool_o,
+                side_hand: hand_o,
+                used_side_this_turn: false,
+                stood: false,
+            },
             player_turn: true,
             deck: Deck::new_shuffled(),
         }
@@ -42,16 +71,20 @@ impl GameState {
     /// returns legal actions at current state
     pub fn legal_actions(&self) -> Vec<Action> {
         let mut actions = Vec::new();
-        if !self.current_player().stood 
-        {
-            actions.push(Action::Stand);
-            actions.push(Action::Pass);
-            for &c in &self.current_player().side_deck {
-                actions.push(Action::Play(c));
+        // side play only if player hasn't used side this turn
+        if !self.current_player().used_side_this_turn {
+            for (idx, card) in self.current_player().side_hand.iter().enumerate() {
+                match card {
+                    SideCard::Simple(_) => actions.push(Action::PlaySide(idx, None)),
+                    SideCard::Flip(_) => {
+                        actions.push(Action::PlaySide(idx, Some(true)));
+                        actions.push(Action::PlaySide(idx, Some(false)));
+                    }
+                }
             }
-        } 
+        }
         else {
-            actions.push(Action::Pass);
+            actions.push(Action::Draw);
         }
         actions
     }
@@ -63,6 +96,10 @@ impl GameState {
     fn current_player_mut(&mut self) -> &mut PlayerState {
         if self.player_turn { &mut self.player } else { &mut self.opponent }
     }
+    
+    fn other_player_mut(&mut self) -> &mut PlayerState {
+        if self.player_turn { &mut self.opponent } else { &mut self.player }
+    }
 
     /// apply an action and advance state
     pub fn apply_action(&mut self, action: Action) {
@@ -71,23 +108,49 @@ impl GameState {
                 let p = self.current_player_mut();
                 p.stood = true;
             }
-            Action::Play(v) => {
-                let p = self.current_player_mut();
-                p.score += v;
-                // remove first occurence
-                if let Some(pos) = p.side_deck.iter().position(|&x| x == v) {
-                    p.side_deck.remove(pos);
-                }
-                // doesnt change turn automatically
-            }
-            Action::Pass => {
-                let card = self.deck.draw(); 
+            Action::Draw => {
+                let card = self.deck.draw();
                 let p = self.current_player_mut();
                 p.score += card;
+            }
+            Action::PlaySide(idx, flip_choice) => {
+                // play side card at index in hand 
+                let value: i8 = {
+                    let hand_len = self.current_player().side_hand.len();
+                    if idx >= hand_len {
+                        // shouldnt happen
+                        0
+                    } 
+                    else {
+                        match self.current_player().side_hand[idx].clone() {
+                            SideCard::Simple(v) => v,
+                            SideCard::Flip(mag) => {
+                                match flip_choice {
+                                    Some(true) => mag,
+                                    Some(false) => -mag,
+                                    None => {
+                                        mag
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                {
+                    let p = self.current_player_mut();
+                    if idx < p.side_hand.len() {
+                        p.side_hand.remove(idx);
+                    }
+                    p.score += value;
+                    p.used_side_this_turn = true;
+                }
             }
         }
         // change turn
         self.player_turn = !self.player_turn;
+
+        let p_now = self.current_player_mut();
+        p_now.used_side_this_turn = false;
     }
 
     pub fn is_round_over(&self) -> bool {
@@ -131,5 +194,28 @@ impl Deck {
         }
 
         self.cards.pop().unwrap()
+    }
+}
+
+impl SideCard {
+    /// helper: build a random pool of length n
+    pub fn random_pool(n: usize) -> Vec<SideCard> {
+        let mut rng = thread_rng();
+        let mut pool: Vec<SideCard> = Vec::with_capacity(n);
+        for _ in 0..n {
+            let r: f32 = rand::random();
+            if r < 0.4 {
+                // positive card magnitude 1..6
+                let mag = (rng.gen_range(1..=6)) as i8;
+                pool.push(SideCard::Simple(mag));
+            } else if r < 0.8 {
+                let mag = (rng.gen_range(1..=6)) as i8;
+                pool.push(SideCard::Simple(-mag));
+            } else {
+                let mag = (rng.gen_range(1..=6)) as i8;
+                pool.push(SideCard::Flip(mag));
+            }
+        }
+        pool
     }
 }
