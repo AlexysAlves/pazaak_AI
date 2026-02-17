@@ -72,10 +72,10 @@ impl GameState {
                 // doesnt change turn automatically
             }
             Action::Pass => {
-                // simulate main deck progress
+                let card = self.main_deck_next; // copia antes
+                self.main_deck_next = (self.main_deck_next % 10) + 1;
                 let p = self.current_player_mut();
-                p.score += self.main_deck_next;
-                self.main_deck_next = (self.main_deck_next%10) + 1;
+                p.score += card;
             }
         }
         // change turn

@@ -1,3 +1,4 @@
+use rand::{Rng, rngs::ThreadRng, thread_rng};
 use core::GameState;
 use core::Action;
 
@@ -6,17 +7,20 @@ pub trait Agent {
 }
 
 pub struct RandomAgent {
-    rng: rand::rngs::ThreadRng,
+    rng: ThreadRng,
 }
 
 impl RandomAgent {
-    pub fn new() -> Self { Self { rng: rand::thread_rng() } }
+    pub fn new() -> Self { Self { rng: thread_rng() } }
 }
 
 impl Agent for RandomAgent {
     fn select_action(&mut self, state: &GameState) -> Action {
         let legal = state.legal_actions();
-        let idx = (self.rng.gen::<usize>() % legal.len()).min(legal.len()-1);
+        if legal.is_empty() {
+            return Action::Pass;
+        }
+        let idx = self.rng.gen_range(0..legal.len());
         legal[idx]
     }
 }

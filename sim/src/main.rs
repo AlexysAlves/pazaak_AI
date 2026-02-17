@@ -14,7 +14,7 @@ fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> O
     state.round_winner()
 }
 
-fn play_match(mut a1: &mut dyn Agent, mut a2: &mut dyn Agent) -> i8 {
+fn play_match(a1: &mut dyn Agent, a2: &mut dyn Agent) -> i8 {
     // best of 5
     let mut score1 = 0;
     let mut score2 = 0;
@@ -23,7 +23,7 @@ fn play_match(mut a1: &mut dyn Agent, mut a2: &mut dyn Agent) -> i8 {
         match play_round(state, a1, a2) {
             Some(1) => score1 += 1,
             Some(-1) => score2 += 1,
-            None => { /* does nothing */ }
+            _ => { /* does nothing */ }
         }
     }
     if score1 >= 3 { 1 } else { -1 }
