@@ -1,3 +1,6 @@
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Stand,
@@ -17,8 +20,14 @@ pub struct GameState {
     pub player: PlayerState,
     pub opponent: PlayerState,
     pub player_turn: bool, // true/false = player/opponent
-    pub main_deck_next: i8, // next main deck card
+    pub deck: Deck, // next main deck card
 }
+
+#[derive(Debug, Clone)]
+pub struct Deck {
+    cards: Vec<i8>,
+}
+
 
 impl GameState {
     pub fn new(side_deck_player: Vec<i8>, side_deck_opponent: Vec<i8>) -> Self {
@@ -26,7 +35,7 @@ impl GameState {
             player: PlayerState { score: 0, side_deck: side_deck_player, stood: false },
             opponent: PlayerState { score: 0, side_deck: side_deck_opponent, stood: false },
             player_turn: true,
-            main_deck_next: 1,
+            deck: Deck::new_shuffled(),
         }
     }
 
@@ -72,8 +81,7 @@ impl GameState {
                 // doesnt change turn automatically
             }
             Action::Pass => {
-                let card = self.main_deck_next; // copia antes
-                self.main_deck_next = (self.main_deck_next % 10) + 1;
+                let card = self.deck.draw(); 
                 let p = self.current_player_mut();
                 p.score += card;
             }
@@ -98,4 +106,30 @@ impl GameState {
     }
 
     fn target(&self) -> i8 { 20 }
+}
+
+impl Deck {
+    pub fn new_shuffled() -> Self {
+        // 40 cards main deck
+        let mut cards: Vec<i8> = Vec::new();
+        for v in 1..=10 {
+            for _ in 0..4 {
+                cards.push(v);
+            }
+        }
+
+        let mut rng = thread_rng();
+        cards.shuffle(&mut rng);
+
+        Self { cards }
+    }
+
+    pub fn draw(&mut self) -> i8 {
+        // shuffle after deck is over
+        if self.cards.is_empty() {
+            *self = Self::new_shuffled();
+        }
+
+        self.cards.pop().unwrap()
+    }
 }
