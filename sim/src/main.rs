@@ -3,14 +3,42 @@ use core::SideCard;
 use agents::{Agent, RandomAgent};
 
 fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> (GameState, Option<i8>) {
-    while !state.is_round_over() {
-        if state.player_turn {
-            let action = a1.select_action(&state);
-            state.apply_action(action);
-        } else {
-            let action = a2.select_action(&state);
-            state.apply_action(action);
+    loop {
+        if state.is_round_over() {
+            break;
         }
+
+        if state.current_player().stood {
+            state.player_turn = !state.player_turn;
+            {
+                let p = state.current_player_mut();
+                p.used_side_this_turn = false;
+                p.has_drawn_this_turn = false;
+            }
+            continue;
+        }
+
+        state.start_turn_if_needed();
+
+        let legal = state.legal_actions();
+        if legal.is_empty() {
+            state.player_turn = !state.player_turn;
+            {
+                let p = state.current_player_mut();
+                p.used_side_this_turn = false;
+                p.has_drawn_this_turn = false;
+            }
+            continue;
+        }
+
+        // escolhe ação pelo agente correspondente
+        let action = if state.player_turn {
+            a1.select_action(&state)
+        } else {
+            a2.select_action(&state)
+        };
+
+        state.apply_action(action);
     }
     let winner = state.round_winner();
     (state, winner)

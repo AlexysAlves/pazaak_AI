@@ -4,7 +4,6 @@ use rand::{Rng, thread_rng};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Stand,
-    Draw,
     PlaySide(usize, Option<bool>),
 }
 
@@ -14,6 +13,7 @@ pub struct PlayerState {
     pub side_pool: Vec<SideCard>, // all 10 cards (remaining in pool after drawing initial hand)
     pub side_hand: Vec<SideCard>, // active 4 cards (can be played)
     pub used_side_this_turn: bool,
+    pub has_drawn_this_turn: bool,
     pub stood: bool,           // has/hasnt stood
 }
 
@@ -54,6 +54,7 @@ impl GameState {
                 side_pool: pool_p,
                 side_hand: hand_p,
                 used_side_this_turn: false,
+                has_drawn_this_turn: false, 
                 stood: false,
             },
             opponent: PlayerState {
@@ -61,6 +62,7 @@ impl GameState {
                 side_pool: pool_o,
                 side_hand: hand_o,
                 used_side_this_turn: false,
+                has_drawn_this_turn: false, 
                 stood: false,
             },
             player_turn: true,
@@ -74,6 +76,7 @@ impl GameState {
                 side_pool: vec![],
                 side_hand: player_hand,
                 used_side_this_turn: false,
+                has_drawn_this_turn: false, 
                 stood: false,
             },
             opponent: PlayerState {
@@ -81,16 +84,21 @@ impl GameState {
                 side_pool: vec![],
                 side_hand: opponent_hand,
                 used_side_this_turn: false,
+                has_drawn_this_turn: false, 
                 stood: false,
             },
             player_turn: rand::random::<bool>(), // deixa justo
             deck: Deck::new_shuffled(),
         }
     }
-    
+
     /// returns legal actions at current state
     pub fn legal_actions(&self) -> Vec<Action> {
         let mut actions = Vec::new();
+        if self.current_player().stood{
+            return actions;
+        }
+        actions.push(Action::Stand);
         // side play only if player hasn't used side this turn
         if !self.current_player().used_side_this_turn {
             for (idx, card) in self.current_player().side_hand.iter().enumerate() {
@@ -103,21 +111,21 @@ impl GameState {
                 }
             }
         }
-        else {
-            actions.push(Action::Draw);
-        }
+        //else {
+          //  actions.push(Action::Draw);
+       // }
         actions
     }
 
-    fn current_player(&self) -> &PlayerState {
+    pub fn current_player(&self) -> &PlayerState {
         if self.player_turn { &self.player } else { &self.opponent }
     }
 
-    fn current_player_mut(&mut self) -> &mut PlayerState {
+    pub fn current_player_mut(&mut self) -> &mut PlayerState {
         if self.player_turn { &mut self.player } else { &mut self.opponent }
     }
     
-    fn other_player_mut(&mut self) -> &mut PlayerState {
+    pub fn other_player_mut(&mut self) -> &mut PlayerState {
         if self.player_turn { &mut self.opponent } else { &mut self.player }
     }
 
@@ -128,11 +136,11 @@ impl GameState {
                 let p = self.current_player_mut();
                 p.stood = true;
             }
-            Action::Draw => {
-                let card = self.deck.draw();
-                let p = self.current_player_mut();
-                p.score += card;
-            }
+        //    Action::Draw => {
+          //      let card = self.deck.draw();
+            //    let p = self.current_player_mut();
+              //  p.score += card;
+            //}
             Action::PlaySide(idx, flip_choice) => {
                 // play side card at index in hand 
                 let value: i8 = {
@@ -171,6 +179,7 @@ impl GameState {
 
         let p_now = self.current_player_mut();
         p_now.used_side_this_turn = false;
+        p_now.has_drawn_this_turn = false;
     }
 
     pub fn is_round_over(&self) -> bool {
@@ -189,6 +198,25 @@ impl GameState {
     }
 
     fn target(&self) -> i8 { 20 }
+
+    /// Draws automatically
+    pub fn start_turn_if_needed(&mut self) {
+        // doenst draw if has stood
+        if self.current_player().stood {
+            return;
+        }
+
+        if self.current_player().has_drawn_this_turn {
+            return;
+        }
+
+        let card = self.deck.draw();
+        {
+            let p = self.current_player_mut();
+            p.score += card;
+            p.has_drawn_this_turn = true;
+        }
+    }
 }
 
 impl Deck {
