@@ -5,6 +5,7 @@ use rand::{Rng, thread_rng};
 pub enum Action {
     Stand,
     PlaySide(usize, Option<bool>),
+    EndTurn,
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +100,7 @@ impl GameState {
             return actions;
         }
         actions.push(Action::Stand);
+        actions.push(Action::EndTurn);
         // side play only if player hasn't used side this turn
         if !self.current_player().used_side_this_turn {
             for (idx, card) in self.current_player().side_hand.iter().enumerate() {
@@ -132,11 +134,6 @@ impl GameState {
                 let p = self.current_player_mut();
                 p.stood = true;
             }
-        //    Action::Draw => {
-          //      let card = self.deck.draw();
-            //    let p = self.current_player_mut();
-              //  p.score += card;
-            //}
             Action::PlaySide(idx, flip_choice) => {
                 // play side card at index in hand 
                 let value: i8 = {
@@ -159,13 +156,12 @@ impl GameState {
                 };
                 {
                     let p = self.current_player_mut();
-                    if idx < p.side_hand.len() {
-                        p.side_hand.remove(idx);
-                    }
+                    p.side_hand.remove(idx);
                     p.score += value;
                     p.used_side_this_turn = true;
                 }
             }
+            Action::EndTurn => {}
         }
         // change turn
         self.next_turn();

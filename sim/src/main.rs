@@ -10,12 +10,7 @@ fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> (
         }
 
         if state.current_player().stood {
-            state.player_turn = !state.player_turn;
-            {
-                let p = state.current_player_mut();
-                p.used_side_this_turn = false;
-                p.has_drawn_this_turn = false;
-            }
+            state.next_turn();
             continue;
         }
 
