@@ -1,6 +1,7 @@
 use core::GameState;
 use core::SideCard;
 use agents::{Agent, RandomAgent};
+use rand;
 
 fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> (GameState, Option<i8>) {
     loop {
@@ -20,14 +21,13 @@ fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> (
 
         state.start_turn_if_needed();
 
+        if state.is_round_over() {
+            break;
+        }
+        
         let legal = state.legal_actions();
         if legal.is_empty() {
-            state.player_turn = !state.player_turn;
-            {
-                let p = state.current_player_mut();
-                p.used_side_this_turn = false;
-                p.has_drawn_this_turn = false;
-            }
+            state.next_turn();
             continue;
         }
 
@@ -55,12 +55,20 @@ fn play_match(a1: &mut dyn Agent, a2: &mut dyn Agent) -> i8 {
 
     let mut hand1 = init_state.player.side_hand.clone();
     let mut hand2 = init_state.opponent.side_hand.clone();
+    // let mut player1_starts = true;
+    let mut player1_starts = rand::random::<bool>(); // random start
     while score1 < 3 && score2 < 3 {
-        
-        let state = GameState::new_with_hands(hand1.clone(), hand2.clone());
+        let mut state = GameState::new_with_hands(hand1.clone(), hand2.clone());
+        if player1_starts {
+            state.player_turn = true;
+        } 
+        else {
+            state.player_turn = false;
+        }        
         let (end_state, result) = play_round(state, a1, a2);
         hand1 = end_state.player.side_hand.clone();
         hand2 = end_state.opponent.side_hand.clone();
+        player1_starts = !player1_starts;
         match result {
             Some(1) => score1 += 1,
             Some(-1) => score2 += 1,

@@ -125,10 +125,6 @@ impl GameState {
         if self.player_turn { &mut self.player } else { &mut self.opponent }
     }
     
-    pub fn other_player_mut(&mut self) -> &mut PlayerState {
-        if self.player_turn { &mut self.opponent } else { &mut self.player }
-    }
-
     /// apply an action and advance state
     pub fn apply_action(&mut self, action: Action) {
         match action {
@@ -146,23 +142,20 @@ impl GameState {
                 let value: i8 = {
                     let hand_len = self.current_player().side_hand.len();
                     if idx >= hand_len {
-                        // shouldnt happen
-                        0
+                        panic!("PlaySide: invalid index {} for hand of length {}", idx, hand_len);
                     } 
-                    else {
-                        match self.current_player().side_hand[idx].clone() {
-                            SideCard::Simple(v) => v,
-                            SideCard::Flip(mag) => {
-                                match flip_choice {
-                                    Some(true) => mag,
-                                    Some(false) => -mag,
-                                    None => {
-                                        mag
-                                    }
-                                }
+                   
+                    match self.current_player().side_hand[idx].clone() {
+                        SideCard::Simple(v) => v,
+                        SideCard::Flip(mag) => {
+                            match flip_choice {
+                                Some(true) => mag,
+                                Some(false) => -mag,
+                                None => panic!("Flip played without flip_choice"),
                             }
                         }
                     }
+                    
                 };
                 {
                     let p = self.current_player_mut();
@@ -175,11 +168,7 @@ impl GameState {
             }
         }
         // change turn
-        self.player_turn = !self.player_turn;
-
-        let p_now = self.current_player_mut();
-        p_now.used_side_this_turn = false;
-        p_now.has_drawn_this_turn = false;
+        self.next_turn();
     }
 
     pub fn is_round_over(&self) -> bool {
@@ -217,6 +206,14 @@ impl GameState {
             p.has_drawn_this_turn = true;
         }
     }
+
+    pub fn next_turn(&mut self) {
+        self.player_turn = !self.player_turn;
+        let p = self.current_player_mut();
+        p.used_side_this_turn = false;
+        p.has_drawn_this_turn = false;
+    }
+
 }
 
 impl Deck {
