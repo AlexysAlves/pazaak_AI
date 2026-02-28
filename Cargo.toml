@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "agents", "sim", "cli"]
+members = ["core", "agents", "sim", "cli", "ui"]
 
 [workspace.metadata]
 package-name = "Pazaak-AI"
