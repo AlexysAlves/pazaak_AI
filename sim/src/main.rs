@@ -4,28 +4,12 @@ use agents::{Agent, RandomAgent};
 use rand;
 
 fn play_round(mut state: GameState, a1: &mut dyn Agent, a2: &mut dyn Agent) -> (GameState, Option<i8>) {
+    
+    state.start_turn_if_needed();
     loop {
         if state.is_round_over() {
             break;
         }
-
-        if state.current_player().stood {
-            state.next_turn();
-            continue;
-        }
-
-        state.start_turn_if_needed();
-
-        if state.is_round_over() {
-            break;
-        }
-        
-        let legal = state.legal_actions();
-        if legal.is_empty() {
-            state.next_turn();
-            continue;
-        }
-
         // escolhe ação pelo agente correspondente
         let action = if state.player_turn {
             a1.select_action(&state)

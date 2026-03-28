@@ -164,7 +164,9 @@ impl GameState {
             Action::EndTurn => {}
         }
         // change turn
-        self.next_turn();
+        if !self.is_round_over() {
+            self.next_turn();
+        }
     }
 
     pub fn is_round_over(&self) -> bool {
@@ -205,9 +207,11 @@ impl GameState {
 
     pub fn next_turn(&mut self) {
         self.player_turn = !self.player_turn;
+    
         let p = self.current_player_mut();
         p.used_side_this_turn = false;
         p.has_drawn_this_turn = false;
+        self.start_turn_if_needed();
     }
 
 }
