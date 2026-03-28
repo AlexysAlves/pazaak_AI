@@ -8,6 +8,52 @@ struct PazaakApp {
     agent: RandomAgent,
 }
 
+fn format_side_card(card: &SideCard) -> String {
+    match card {
+        SideCard::Simple(v) => format!("{}", v),
+        SideCard::Flip(v) => format!("Flip({})", v),
+    }
+}
+
+fn format_card_event(event: &core::CardEvent) -> String {
+    match event {
+        core::CardEvent::MainDeck(v) => format!("Main deck: {}", v),
+        core::CardEvent::SideDeck(card) => format!("Side card: {}", format_side_card(card)),
+    }
+}
+
+fn show_player_panel(ui: &mut egui::Ui, title: &str, player: &core::PlayerState) {
+    ui.push_id(title, |ui| {
+        ui.group(|ui| {
+            ui.heading(title);
+            ui.label(format!("Score: {}", player.score));
+            ui.label(format!("Stood: {}", if player.stood { "yes" } else { "no" }));
+
+            ui.collapsing("Initial side deck (10)", |ui| {
+                for (i, card) in player.side_deck_all.iter().enumerate() {
+                    ui.label(format!("{}: {}", i + 1, format_side_card(card)));
+                }
+            });
+
+            ui.collapsing("Current side hand", |ui| {
+                for (i, card) in player.side_hand.iter().enumerate() {
+                    ui.label(format!("{}: {}", i + 1, format_side_card(card)));
+                }
+            });
+
+            ui.collapsing("Cards played", |ui| {
+                if player.played_cards.is_empty() {
+                    ui.label("None");
+                } else {
+                    for (i, event) in player.played_cards.iter().enumerate() {
+                        ui.label(format!("{}: {}", i + 1, format_card_event(event)));
+                    }
+                }
+            });
+        });
+    });
+}
+
 impl Default for PazaakApp {
     fn default() -> Self {
         // create pools and initial state 
@@ -28,13 +74,11 @@ impl eframe::App for PazaakApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Pazaak");
 
-            // Show scores and whose turn
             ui.horizontal(|ui| {
-                ui.label(format!("Player score: {}", self.state.player.score));
-                ui.label(format!("Opponent score: {}", self.state.opponent.score));
-                ui.label(format!("Turn: {}", if self.state.player_turn { "Player" } else { "Opponent" }));
+                show_player_panel(ui, "Player", &self.state.player);
+                ui.separator();
+                show_player_panel(ui, "Opponent", &self.state.opponent);
             });
-
             ui.separator();
 
             // Show human hand 

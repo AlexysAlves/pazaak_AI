@@ -32,26 +32,32 @@ fn play_match(a1: &mut dyn Agent, a2: &mut dyn Agent) -> i8 {
     let pool2 = SideCard::random_pool(10);
     let init_state = GameState::new(pool1, pool2);
 
-    let mut hand1 = init_state.player.side_hand.clone();
-    let mut hand2 = init_state.opponent.side_hand.clone();
+    let mut player_state = init_state.player;
+    let mut opponent_state = init_state.opponent;
     // let mut player1_starts = true;
     let mut player1_starts = rand::random::<bool>(); // random start
     while score1 < 3 && score2 < 3 {
-        let mut state = GameState::new_with_hands(hand1.clone(), hand2.clone());
-        if player1_starts {
-            state.player_turn = true;
-        } 
-        else {
-            state.player_turn = false;
-        }        
+        let state = GameState::new_with_match_state(
+            player_state.side_deck_all.clone(),
+            player_state.side_pool.clone(),
+            player_state.side_hand.clone(),
+            player_state.played_cards.clone(),
+            opponent_state.side_deck_all.clone(),
+            opponent_state.side_pool.clone(),
+            opponent_state.side_hand.clone(),
+            opponent_state.played_cards.clone(),
+            player1_starts,
+        );
+
         let (end_state, result) = play_round(state, a1, a2);
-        hand1 = end_state.player.side_hand.clone();
-        hand2 = end_state.opponent.side_hand.clone();
+
+        player_state = end_state.player;
+        opponent_state = end_state.opponent;
         player1_starts = !player1_starts;
         match result {
             Some(1) => score1 += 1,
             Some(-1) => score2 += 1,
-            _ => { /* does nothing */ }
+            _ => { }
         }
     }
     if score1 >= 3 { 1 } else { -1 }

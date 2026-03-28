@@ -11,8 +11,10 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub struct PlayerState {
     pub score: i8,             // current sum
+    pub side_deck_all: Vec<SideCard>, // all 10 initial cards
     pub side_pool: Vec<SideCard>, // all 10 cards (remaining in pool after drawing initial hand)
     pub side_hand: Vec<SideCard>, // active 4 cards (can be played)
+    pub played_cards: Vec<CardEvent>, // card history
     pub used_side_this_turn: bool,
     pub has_drawn_this_turn: bool,
     pub stood: bool,           // has/hasnt stood
@@ -37,31 +39,61 @@ pub enum SideCard {
     Flip(i8),     // magnitude and sign
 }
 
+#[derive(Debug, Clone)]
+pub enum CardEvent {
+    MainDeck(i8),
+    SideDeck(SideCard),
+}
+fn build_player_state(
+    side_deck_all: Vec<SideCard>,
+    side_pool: Vec<SideCard>,
+    side_hand: Vec<SideCard>,
+    played_cards: Vec<CardEvent>,
+) -> PlayerState {
+    PlayerState {
+        score: 0,
+        side_deck_all,
+        side_pool,
+        side_hand,
+        played_cards,
+        used_side_this_turn: false,
+        has_drawn_this_turn: false,
+        stood: false,
+    }
+}
+
 impl GameState {
     pub fn new(side_pool_player: Vec<SideCard>, side_pool_opponent: Vec<SideCard>) -> Self {
         let mut rng = thread_rng();
 
+        let mut side_deck_all_p = side_pool_player.clone();
+        side_deck_all_p.shuffle(&mut rng);
         // clone pools and sample 4 for each hand 
-        let mut pool_p = side_pool_player.clone();
-        pool_p.shuffle(&mut rng);
+        let mut pool_p = side_deck_all_p.clone();
         let hand_p: Vec<SideCard> = pool_p.drain(0..4.min(pool_p.len())).collect();
 
-        let mut pool_o = side_pool_opponent.clone();
-        pool_o.shuffle(&mut rng);
+        let mut side_deck_all_o = side_pool_opponent.clone();
+        side_deck_all_o.shuffle(&mut rng);
+
+        let mut pool_o = side_deck_all_o.clone();
         let hand_o: Vec<SideCard> = pool_o.drain(0..4.min(pool_o.len())).collect();
         Self {
             player: PlayerState {
                 score: 0,
+                side_deck_all: side_deck_all_p,
                 side_pool: pool_p,
                 side_hand: hand_p,
+                played_cards: vec![],
                 used_side_this_turn: false,
                 has_drawn_this_turn: false, 
                 stood: false,
             },
             opponent: PlayerState {
                 score: 0,
+                side_deck_all: side_deck_all_o,
                 side_pool: pool_o,
                 side_hand: hand_o,
+                played_cards: vec![],
                 used_side_this_turn: false,
                 has_drawn_this_turn: false, 
                 stood: false,
@@ -70,29 +102,34 @@ impl GameState {
             deck: Deck::new_shuffled(),
         }
     }
-    pub fn new_with_hands(player_hand: Vec<SideCard>, opponent_hand: Vec<SideCard>) -> Self {
+    pub fn new_with_match_state(
+        player_side_deck_all: Vec<SideCard>,
+        player_side_pool: Vec<SideCard>,
+        player_side_hand: Vec<SideCard>,
+        player_played_cards: Vec<CardEvent>,
+        opponent_side_deck_all: Vec<SideCard>,
+        opponent_side_pool: Vec<SideCard>,
+        opponent_side_hand: Vec<SideCard>,
+        opponent_played_cards: Vec<CardEvent>,
+        player_turn: bool,
+    ) -> Self {
         Self {
-            player: PlayerState {
-                score: 0,
-                side_pool: vec![],
-                side_hand: player_hand,
-                used_side_this_turn: false,
-                has_drawn_this_turn: false, 
-                stood: false,
-            },
-            opponent: PlayerState {
-                score: 0,
-                side_pool: vec![],
-                side_hand: opponent_hand,
-                used_side_this_turn: false,
-                has_drawn_this_turn: false, 
-                stood: false,
-            },
-            player_turn: rand::random::<bool>(), // deixa justo
+            player: build_player_state(
+                player_side_deck_all,
+                player_side_pool,
+                player_side_hand,
+                player_played_cards,
+            ),
+            opponent: build_player_state(
+                opponent_side_deck_all,
+                opponent_side_pool,
+                opponent_side_hand,
+                opponent_played_cards,
+            ),
+            player_turn,
             deck: Deck::new_shuffled(),
         }
     }
-
     /// returns legal actions at current state
     pub fn legal_actions(&self) -> Vec<Action> {
         let mut actions = Vec::new();
@@ -135,14 +172,13 @@ impl GameState {
                 p.stood = true;
             }
             Action::PlaySide(idx, flip_choice) => {
+                let played_card = {
+                    self.current_player().side_hand[idx].clone()
+                };
+                
                 // play side card at index in hand 
                 let value: i8 = {
-                    let hand_len = self.current_player().side_hand.len();
-                    if idx >= hand_len {
-                        panic!("PlaySide: invalid index {} for hand of length {}", idx, hand_len);
-                    } 
-                   
-                    match self.current_player().side_hand[idx].clone() {
+                    match played_card.clone() {
                         SideCard::Simple(v) => v,
                         SideCard::Flip(mag) => {
                             match flip_choice {
@@ -158,6 +194,7 @@ impl GameState {
                     let p = self.current_player_mut();
                     p.side_hand.remove(idx);
                     p.score += value;
+                    p.played_cards.push(CardEvent::SideDeck(played_card));
                     p.used_side_this_turn = true;
                 }
             }
@@ -201,6 +238,7 @@ impl GameState {
         {
             let p = self.current_player_mut();
             p.score += card;
+            p.played_cards.push(CardEvent::MainDeck(card));
             p.has_drawn_this_turn = true;
         }
     }
